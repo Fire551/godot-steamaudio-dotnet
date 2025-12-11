@@ -1,6 +1,8 @@
 # Playfight specific stuff
 checksum_database.json
 
+*.zip
+
 # ---> Godot
 # Godot 4+ specific ignores
 .godot/
@@ -269,3 +271,6 @@ FakesAssemblies/
 
 .vscode/
 .idea/
+
+phonon.dll
+phonon_fmod.dll
