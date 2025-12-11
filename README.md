@@ -1,4 +1,7 @@
 # Godot Steam Audio .Net
+
+[[Donate](ko-fi.com/johndaniel256)] [[Steam Audio repo](https://github.com/ValveSoftware/steam-audio)] [[utopia-rise FMOD Fork repo](https://github.com/JamDoggie/fmod-gdextension-steamaudio)] [[original utopia-rise FMOD repo](https://github.com/utopia-rise/fmod-gdextension)]
+
 This is a rough implemention of Valve's Steam Audio library using P/Invoke in C#. **This addon is currently only intended to serve as a bridge between Steam Audio and FMOD. If you are not using FMOD, this will be useless to you.** 
 
 With that being said, you will need to clone and compile this repository to work: https://github.com/JamDoggie/fmod-gdextension-steamaudio
@@ -54,11 +57,11 @@ To bake audio data, you first need to generate probes with the "Gen Probes" butt
 In the future, I would like to implement a way to manually place probes in the editor.
 
 ## Static geometry
-To send your level geometry to Steam Audio, you'll need a SteamAudioStaticGeometry node. In the "Mesh Instances" array, you can either directly linked MeshInstance3Ds, or you can link to a node that has MeshInstance3D children. 
-This is useful if you just want to point it to an imported GLTF with "Editable Children" checked. Just make sure your geometry is relatively simple, as this will increase CPU load and increase baking times.
+To send your level geometry to Steam Audio, you'll need a SteamAudioStaticGeometry node. In the "Mesh Instances" array, you can either directly link MeshInstance3Ds, or you can link to a node that has MeshInstance3D children. 
+This is useful if you just want to point it to an imported GLTF. Just make sure your geometry is relatively simple, as polygons increase CPU load and baking times.
 
 ## Baking
-To bake static audio sources, first you need to add a SteamAudioStaticSourceMarker node as a child of your FmodEventEmitters. It's important to note that these marker nodes need to be in the exact same position that your sound is going to play, 
+To bake static audio sources, you first need to add a SteamAudioStaticSourceMarker node as a child of any FmodEventEmitter you want to be static. It's important to note that these marker nodes need to be in the exact same position that your sound is going to play, 
 or the sounds will simply fall back to realtime calculation.
 
 In the end, your node tree may look something like this:
