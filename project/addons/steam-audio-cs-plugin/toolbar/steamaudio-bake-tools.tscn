@@ -1,0 +1,30 @@
+[gd_scene load_steps=3 format=3 uid="uid://cb8xpevijdy8k"]
+
+[ext_resource type="Script" uid="uid://bdrlexxnegogm" path="res://addons/steam-audio-cs-plugin/buttons/gen_probes_button.gd" id="1_lwmq2"]
+[ext_resource type="Script" uid="uid://vqpvl35bxto7" path="res://addons/steam-audio-cs-plugin/buttons/bake_reverb_button.gd" id="2_8pokg"]
+
+[node name="SteamaudioBakeTools" type="Control"]
+custom_minimum_size = Vector2(217.25, 0)
+layout_mode = 3
+anchors_preset = 0
+
+[node name="FlowContainer" type="FlowContainer" parent="."]
+custom_minimum_size = Vector2(217.25, 0)
+layout_mode = 0
+offset_left = 11.75
+offset_top = -2.0
+offset_right = 229.0
+offset_bottom = 64.0
+
+[node name="gen_probes" type="Button" parent="FlowContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Gen Probes
+"
+script = ExtResource("1_lwmq2")
+
+[node name="bake_button" type="Button" parent="FlowContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Start Bake"
+script = ExtResource("2_8pokg")
