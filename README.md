@@ -1,6 +1,6 @@
 # Godot Steam Audio .Net
 
-[[Donate](ko-fi.com/johndaniel256)] [Example project repo](https://github.com/JamDoggie/godot-steamaudio-dotnet-example) [[Steam Audio repo](https://github.com/ValveSoftware/steam-audio)] [[utopia-rise FMOD Fork repo](https://github.com/JamDoggie/fmod-gdextension-steamaudio)] [[Original utopia-rise FMOD repo](https://github.com/utopia-rise/fmod-gdextension)]
+[[Donate](ko-fi.com/johndaniel256)] [[Example project repo](https://github.com/JamDoggie/godot-steamaudio-dotnet-example)] [[Steam Audio repo](https://github.com/ValveSoftware/steam-audio)] [[utopia-rise FMOD Fork repo](https://github.com/JamDoggie/fmod-gdextension-steamaudio)] [[Original utopia-rise FMOD repo](https://github.com/utopia-rise/fmod-gdextension)]
 
 This is a rough implemention of Valve's Steam Audio library using P/Invoke in C#. **This addon is currently only intended to serve as a bridge between Steam Audio and FMOD. If you are not using FMOD, this will be useless to you.** 
 
