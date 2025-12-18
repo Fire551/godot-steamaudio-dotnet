@@ -8,7 +8,9 @@ var toolbar_baker : Control
 var bake_gui : Control
 
 func _enable_plugin() -> void:
-	pass
+	add_autoload_singleton("SteamAudioBridgeSingleton", "res://addons/steam-audio-cs-plugin/steamaudio/SteamAudioBridgeSingleton.tscn")
+func _disable_plugin() -> void:
+	remove_autoload_singleton("SteamAudioBridgeSingleton")
 
 func _enter_tree():
 	# Gizmos

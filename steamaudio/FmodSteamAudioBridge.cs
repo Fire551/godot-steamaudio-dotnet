@@ -23,9 +23,37 @@ namespace SteamAudioDotnet.scripts.nativelib
 
         [Export]
         public Node? FMODGodotBridge = null;
+
+
+        private Action _listenerLost;
+        private Node3D? listenerNode = null;
         [Export]
-        public Node3D? ListenerNode { get; internal set; } = null;
-        
+        public Node3D? ListenerNode {
+            get
+            {
+                return listenerNode;
+            }
+            set
+            {
+                if (listenerNode != null) { listenerNode.TreeExiting -= _listenerLost; }
+                listenerNode = value;
+                
+                if (listenerNode != null)
+                {
+                    _listenerLost = () =>
+                    {
+                        listenerNode.TreeExiting -= _listenerLost;
+                        ListenerNode = this;
+                    };
+                    listenerNode.TreeExiting += _listenerLost;
+                }
+                else
+                {
+                    listenerNode = this;
+                }
+            }
+        }
+
         [Export]
         public int SamplingRate { get; internal set; } = 48000;
         [Export]
