@@ -35,6 +35,7 @@ namespace SteamAudioDotnet.scripts.nativelib
             }
             set
             {
+                if (listenerNode != null) { listenerNode.TreeExiting -= _listenerLost; }
                 listenerNode = value;
                 
                 if (listenerNode != null)
