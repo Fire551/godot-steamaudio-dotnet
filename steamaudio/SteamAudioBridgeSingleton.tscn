@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://c6rtrp5bj1fa0"]
+
+[ext_resource type="Script" path="res://addons/steam-audio-cs-plugin/steamaudio/FmodSteamAudioBridge.cs" id="1_oby05"]
+[ext_resource type="Script" uid="uid://5mjxxexha0b8" path="res://addons/steam-audio-cs-plugin/steamaudio/fmod_gdscript_bridge.gd" id="2_b45an"]
+
+[node name="FmodSteamAudioBridge" type="Node3D" node_paths=PackedStringArray("FMODGodotBridge", "ListenerNode")]
+script = ExtResource("1_oby05")
+FMODGodotBridge = NodePath("FmodGdScriptBridge2")
+ListenerNode = NodePath(".")
+metadata/_custom_type_script = "uid://dqj6vrmvrx2e6"
+
+[node name="FmodGdScriptBridge2" type="Node" parent="." node_paths=PackedStringArray("SteamAudioBridge")]
+script = ExtResource("2_b45an")
+SteamAudioBridge = NodePath("..")
+metadata/_custom_type_script = "uid://5mjxxexha0b8"
