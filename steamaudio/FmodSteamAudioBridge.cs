@@ -680,6 +680,7 @@ namespace SteamAudioDotnet.scripts.nativelib
             if (Engine.IsEditorHint())
             {
                 API.iplSceneCommit(Scene);
+                API.iplSimulatorCommit(Simulator);
             }
             else
             {
@@ -857,6 +858,16 @@ namespace SteamAudioDotnet.scripts.nativelib
             if (Engine.IsEditorHint())
                 return;
 
+            if (SceneCommitQueued)
+            {
+                lock (SteamAudioSimulationLock)
+                {
+                    API.iplSceneCommit(Scene);
+                    API.iplSimulatorCommit(Simulator);
+                    SceneCommitQueued = false;
+                }
+            }
+
             if (ListenerNode == null
                 || Simulator == IntPtr.Zero)
             {
@@ -914,16 +925,6 @@ namespace SteamAudioDotnet.scripts.nativelib
 
                 if (Context == IntPtr.Zero || Simulator == IntPtr.Zero)
                     continue;
-
-                if (SceneCommitQueued)
-                {
-                    lock (SteamAudioSimulationLock)
-                    {
-                        API.iplSceneCommit(Scene);
-                        API.iplSimulatorCommit(Simulator);
-                        SceneCommitQueued = false;
-                    }
-                }
 
                 // Run direct
                 API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Direct, ref SharedInputs);
