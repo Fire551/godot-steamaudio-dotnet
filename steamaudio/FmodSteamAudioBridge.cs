@@ -723,21 +723,21 @@ namespace SteamAudioDotnet.scripts.nativelib
             if (steamDSP == null)
                 return;
 
-            lock(SteamAudioSimulationLock) lock (SteamAudioCollectionsLock)
+            // Do stuff with our Steam Audio Spatializer DSP if this source has one.
+            SteamAudioSource? source = new(this, eventInstance);
+
+            if (source == null)
+                return;
+
+            if (source.FmodSourceHandle == null)
+                return;
+
+            if (!CheckFmodErr(steamDSP.Value.setParameterInt((int)IPLSpatializerParams.IPL_SPATIALIZE_SIMULATION_OUTPUTS_HANDLE,
+                source.FmodSourceHandle.Value)))
+                return;
+
+            lock (SteamAudioCollectionsLock)
             {
-                // Do stuff with our Steam Audio Spatializer DSP if this source has one.
-                SteamAudioSource? source = new(this, eventInstance);
-
-                if (source == null)
-                    return;
-
-                if (source.FmodSourceHandle == null)
-                    return;
-
-                if (!CheckFmodErr(steamDSP.Value.setParameterInt((int)IPLSpatializerParams.IPL_SPATIALIZE_SIMULATION_OUTPUTS_HANDLE,
-                    source.FmodSourceHandle.Value)))
-                    return;
-
                 ActiveSources.Add(source);
             }
         }
