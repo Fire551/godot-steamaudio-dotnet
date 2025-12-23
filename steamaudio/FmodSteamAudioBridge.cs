@@ -869,16 +869,6 @@ namespace SteamAudioDotnet.scripts.nativelib
                 ReverbListenerSource.SourceTransform = ListenerNode.GlobalTransform;
             }
 
-            if (SceneCommitQueued)
-            {
-                lock (SteamAudioSimulationLock)
-                {
-                    API.iplSceneCommit(Scene);
-                    API.iplSimulatorCommit(Simulator);
-                    SceneCommitQueued = false;
-                }
-            }
-
             Transform3D transform = ListenerNode.GlobalTransform;
 
             SharedInputs = new()
@@ -924,6 +914,16 @@ namespace SteamAudioDotnet.scripts.nativelib
 
                 if (Context == IntPtr.Zero || Simulator == IntPtr.Zero)
                     continue;
+
+                if (SceneCommitQueued)
+                {
+                    lock (SteamAudioSimulationLock)
+                    {
+                        API.iplSceneCommit(Scene);
+                        API.iplSimulatorCommit(Simulator);
+                        SceneCommitQueued = false;
+                    }
+                }
 
                 // Run direct
                 API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Direct, ref SharedInputs);
