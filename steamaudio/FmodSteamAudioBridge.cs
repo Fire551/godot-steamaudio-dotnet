@@ -121,6 +121,7 @@ namespace SteamAudioDotnet.scripts.nativelib
         public bool BakedDataLoaded => AudioBaker != null;
 
         internal bool SceneCommitQueued = false;
+        internal bool SimulatorCommitQueued = false;
 
         internal SimulationFlags SimFlags = SimulationFlags.Direct | SimulationFlags.Reflections | SimulationFlags.Pathing;
         internal SimulationFlags SourceFlags = SimulationFlags.Direct | SimulationFlags.Reflections | SimulationFlags.Pathing;
@@ -680,11 +681,22 @@ namespace SteamAudioDotnet.scripts.nativelib
             if (Engine.IsEditorHint())
             {
                 API.iplSceneCommit(Scene);
-                API.iplSimulatorCommit(Simulator);
             }
             else
             {
                 SceneCommitQueued = true;
+            }
+        }
+
+        internal void QueueSimulatorCommit()
+        {
+            if (Engine.IsEditorHint())
+            {
+                API.iplSimulatorCommit(Simulator);
+            }
+            else
+            {
+                SimulatorCommitQueued = true;
             }
         }
 
@@ -865,6 +877,24 @@ namespace SteamAudioDotnet.scripts.nativelib
                 return;
             }
 
+            if (SceneCommitQueued)
+            {
+                lock (SteamAudioSimulationLock)
+                {
+                    API.iplSceneCommit(Scene);
+                    SceneCommitQueued = false;
+                }
+            }
+
+            if (SimulatorCommitQueued)
+            {
+                lock (SteamAudioSimulationLock)
+                {
+                    API.iplSimulatorCommit(Simulator);
+                    SimulatorCommitQueued = false;
+                }
+            }
+
             if (ReverbListenerSource != null && ReverbListenerSource.IsValid)
             {
                 ReverbListenerSource.SourceTransform = ListenerNode.GlobalTransform;
@@ -915,16 +945,6 @@ namespace SteamAudioDotnet.scripts.nativelib
 
                 if (Context == IntPtr.Zero || Simulator == IntPtr.Zero)
                     continue;
-
-                if (SceneCommitQueued)
-                {
-                    lock (SteamAudioSimulationLock)
-                    {
-                        API.iplSceneCommit(Scene);
-                        API.iplSimulatorCommit(Simulator);
-                        SceneCommitQueued = false;
-                    }
-                }
 
                 // Run direct
                 API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Direct, ref SharedInputs);

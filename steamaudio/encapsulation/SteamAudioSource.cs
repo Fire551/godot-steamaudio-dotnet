@@ -194,7 +194,7 @@ namespace SteamAudioDotnet.scripts.steamaudio.encapsulation
             API.iplSourceAdd(sourcePtr, steamAudio.Simulator);
             FmodSourceHandle = SteamFmodApi.iplFMODAddSource(sourcePtr);
 
-            steamAudio.QueueSceneCommit();
+            steamAudio.QueueSimulatorCommit();
 
             Ptr = sourcePtr;
 
