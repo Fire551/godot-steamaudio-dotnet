@@ -27,17 +27,27 @@ namespace SteamAudioDotnet.scripts.nativelib
 
         private Action _listenerLost;
         private Node3D? listenerNode = null;
+
         [Export]
-        public Node3D? ListenerNode {
+        public Node3D? ListenerNode
+        {
             get
             {
                 return listenerNode;
             }
             set
             {
-                if (listenerNode != null) { listenerNode.TreeExiting -= _listenerLost; }
+                if (Engine.IsEditorHint())
+                {
+                    listenerNode = value;
+                    return;
+                }
+
+                if (listenerNode != null)
+                    listenerNode.TreeExiting -= _listenerLost;
+
                 listenerNode = value;
-                
+
                 if (listenerNode != null)
                 {
                     _listenerLost = () =>
@@ -45,6 +55,7 @@ namespace SteamAudioDotnet.scripts.nativelib
                         listenerNode.TreeExiting -= _listenerLost;
                         ListenerNode = this;
                     };
+
                     listenerNode.TreeExiting += _listenerLost;
                 }
                 else
