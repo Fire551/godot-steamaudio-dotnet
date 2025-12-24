@@ -24,8 +24,7 @@ namespace SteamAudioDotnet.scripts.nativelib
         [Export]
         public Node? FMODGodotBridge = null;
 
-
-        private Action _listenerLost;
+        private Action? listenerLost;
         private Node3D? listenerNode = null;
 
         [Export]
@@ -44,19 +43,19 @@ namespace SteamAudioDotnet.scripts.nativelib
                 }
 
                 if (listenerNode != null)
-                    listenerNode.TreeExiting -= _listenerLost;
+                    listenerNode.TreeExiting -= listenerLost;
 
                 listenerNode = value;
 
                 if (listenerNode != null)
                 {
-                    _listenerLost = () =>
+                    listenerLost = () =>
                     {
-                        listenerNode.TreeExiting -= _listenerLost;
+                        listenerNode.TreeExiting -= listenerLost;
                         ListenerNode = this;
                     };
 
-                    listenerNode.TreeExiting += _listenerLost;
+                    listenerNode.TreeExiting += listenerLost;
                 }
                 else
                 {
@@ -101,7 +100,8 @@ namespace SteamAudioDotnet.scripts.nativelib
 
         public static FmodSteamAudioBridge? Singleton = null;
 
-        public static object AudioSourcesLock = new object();
+        public static object AudioSourcesLock = new();
+        public volatile bool SimulationStarting = false;
 
         /// <summary>
         /// NOTE: Lock AudioSourcesLock while enumerating this list.
@@ -115,17 +115,11 @@ namespace SteamAudioDotnet.scripts.nativelib
         {
             get
             {
-                lock (SteamAudioCollectionsLock)
-                {
-                    return audioBaker;
-                }
+                return audioBaker;
             }
             internal set
             {
-                lock (SteamAudioCollectionsLock)
-                {
-                    audioBaker = value;
-                }
+                audioBaker = value;
             }
         }
 
@@ -166,6 +160,8 @@ namespace SteamAudioDotnet.scripts.nativelib
         internal volatile object SteamAudioCollectionsLock = new();
 
         internal unsafe DeviationModel* DeviationModel = null;
+
+        internal volatile bool FirstProcessHappened = false;
 
         private void LogCallback(LogLevel level, string s)
         {
@@ -720,6 +716,11 @@ namespace SteamAudioDotnet.scripts.nativelib
         {
             CallDeferred(nameof(FmodEventDeletedTask), var);
         }
+        
+        public void FMODPlayOneShotGuid(string guid)
+        {
+            FMODGodotBridge?.Call("play_one_shot", guid);
+        }
 
         public void FmodEventCreatedTask(Variant var)
         {
@@ -783,6 +784,7 @@ namespace SteamAudioDotnet.scripts.nativelib
                 {
                     API.iplSourceRemove(source.Ptr, Simulator);
                     SteamFmodApi.iplFMODRemoveSource(source.FmodSourceHandle.Value);
+
                     lock (SteamAudioCollectionsLock)
                     {
                         ActiveSources.Remove(source);
@@ -866,6 +868,7 @@ namespace SteamAudioDotnet.scripts.nativelib
         private unsafe nint bytesToPtr(byte[] bytes)
         {
             byte* ptrFixed = stackalloc byte[bytes.Length];
+
             for (int i = 0; i < bytes.Length; i++)
             {
                 ptrFixed[i] = bytes[i];
@@ -886,24 +889,6 @@ namespace SteamAudioDotnet.scripts.nativelib
             {
                 GD.PrintErr("ListenerNode or Simulator not set in FmodSteamAudioBridge!");
                 return;
-            }
-
-            if (SceneCommitQueued)
-            {
-                lock (SteamAudioSimulationLock)
-                {
-                    API.iplSceneCommit(Scene);
-                    SceneCommitQueued = false;
-                }
-            }
-
-            if (SimulatorCommitQueued)
-            {
-                lock (SteamAudioSimulationLock)
-                {
-                    API.iplSimulatorCommit(Simulator);
-                    SimulatorCommitQueued = false;
-                }
             }
 
             if (ReverbListenerSource != null && ReverbListenerSource.IsValid)
@@ -943,7 +928,11 @@ namespace SteamAudioDotnet.scripts.nativelib
                     }
                 }
             }
+
+            FirstProcessHappened = true;
         }
+
+        private List<SteamAudioSource> threadAudioSources = new();
 
         public void RunSimulation()
         {
@@ -957,15 +946,44 @@ namespace SteamAudioDotnet.scripts.nativelib
                 if (Context == IntPtr.Zero || Simulator == IntPtr.Zero)
                     continue;
 
-                // Run direct
-                API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Direct, ref SharedInputs);
+                threadAudioSources.Clear();
 
-                lock(SteamAudioCollectionsLock)
+                lock (SteamAudioCollectionsLock)
                 {
                     foreach (SteamAudioSource source in ActiveSources)
                     {
-                        source.UpdateSourceInputs(this, Simulator, SimulationFlags.Direct);
+                        threadAudioSources.Add(source);
                     }
+                }
+
+                // Run all queued commits
+                if (FirstProcessHappened)
+                {
+                    if (SimulatorCommitQueued)
+                    {
+                        lock (SteamAudioSimulationLock)
+                        {
+                            API.iplSimulatorCommit(Simulator);
+                            SimulatorCommitQueued = false;
+                        }
+                    }
+
+                    if (SceneCommitQueued)
+                    {
+                        lock (SteamAudioSimulationLock)
+                        {
+                            API.iplSceneCommit(Scene);
+                            SceneCommitQueued = false;
+                        }
+                    }
+                }
+
+                // Run direct
+                API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Direct, ref SharedInputs);
+
+                foreach (SteamAudioSource source in threadAudioSources)
+                {
+                    source.UpdateSourceInputs(this, Simulator, SimulationFlags.Direct);
                 }
 
                 lock (SteamAudioSimulationLock)
@@ -976,14 +994,11 @@ namespace SteamAudioDotnet.scripts.nativelib
                 // Run reflections
                 API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Reflections, ref SharedInputs);
 
-                lock (SteamAudioCollectionsLock)
+                foreach (SteamAudioSource source in threadAudioSources)
                 {
-                    foreach (SteamAudioSource source in ActiveSources)
-                    {
-                        source.UpdateSourceInputs(this, Simulator, SimulationFlags.Reflections);
-                    }
+                    source.UpdateSourceInputs(this, Simulator, SimulationFlags.Reflections);
                 }
-                
+
                 if (ReverbListenerSource != null && ReverbListenerSource.IsValid)
                 {
                     ReverbListenerSource.UpdateSourceInputs(this, Simulator, SimulationFlags.Reflections);
@@ -999,12 +1014,9 @@ namespace SteamAudioDotnet.scripts.nativelib
                 {
                     API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Pathing, ref SharedInputs);
 
-                    lock (SteamAudioCollectionsLock)
+                    foreach (SteamAudioSource source in threadAudioSources)
                     {
-                        foreach (SteamAudioSource source in ActiveSources)
-                        {
-                            source.UpdateSourceInputs(this, Simulator, SimulationFlags.Pathing);
-                        }
+                        source.UpdateSourceInputs(this, Simulator, SimulationFlags.Pathing);
                     }
 
                     lock (SteamAudioSimulationLock)

@@ -21,6 +21,9 @@ static func get_param(param_name : String) -> float:
 static func set_param(param_name : String, val : float):
 	FmodServer.set_global_parameter_by_name(param_name, val)
 
+static func play_one_shot(sound_uid : String):
+	FmodServer.play_one_shot_using_guid(sound_uid)
+
 func _ready() -> void:
 	FmodServer.add_event_created_callback(event_created)
 	FmodServer.add_event_removed_callback(event_removed)
