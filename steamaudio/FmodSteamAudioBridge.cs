@@ -709,12 +709,12 @@ namespace SteamAudioDotnet.scripts.nativelib
 
         public unsafe void FMODEventCreated(Variant var)
         {
-            CallDeferred(nameof(FmodEventCreatedTask), var);
+            FmodEventCreatedTask(var);
         }
 
         public void FMODEventRemoved(Variant var)
         {
-            CallDeferred(nameof(FmodEventDeletedTask), var);
+            FmodEventDeletedTask(var);
         }
         
         public void FMODPlayOneShotGuid(string guid)
