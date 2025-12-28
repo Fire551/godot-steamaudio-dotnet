@@ -101,7 +101,11 @@ namespace SteamAudioDotnet.scripts.nativelib
         public static FmodSteamAudioBridge? Singleton = null;
 
         public static object AudioSourcesLock = new();
+        public static object AudioSourceCreationLock = new();
         public volatile bool SimulationStarting = false;
+
+        private Queue<Variant> FMODSourceCreateEvents = new();
+        private Queue<Variant> FMODSourceDeleteEvents = new();
 
         /// <summary>
         /// NOTE: Lock AudioSourcesLock while enumerating this list.
@@ -709,12 +713,18 @@ namespace SteamAudioDotnet.scripts.nativelib
 
         public unsafe void FMODEventCreated(Variant var)
         {
-            FmodEventCreatedTask(var);
+            lock (AudioSourceCreationLock)
+            {
+                FMODSourceCreateEvents.Enqueue(var);
+            }
         }
 
         public void FMODEventRemoved(Variant var)
         {
-            FmodEventDeletedTask(var);
+            lock (AudioSourceCreationLock)
+            {
+                FMODSourceDeleteEvents.Enqueue(var);
+            }
         }
         
         public void FMODPlayOneShotGuid(string guid)
@@ -945,6 +955,21 @@ namespace SteamAudioDotnet.scripts.nativelib
 
                 if (Context == IntPtr.Zero || Simulator == IntPtr.Zero)
                     continue;
+
+                lock (AudioSourceCreationLock)
+                {
+                    while (FMODSourceCreateEvents.Count > 0)
+                    {
+                        Variant var = FMODSourceCreateEvents.Dequeue();
+                        FmodEventCreatedTask(var);
+                    }
+
+                    while (FMODSourceDeleteEvents.Count > 0)
+                    {
+                        Variant var = FMODSourceDeleteEvents.Dequeue();
+                        FmodEventDeletedTask(var);
+                    }
+                }
 
                 threadAudioSources.Clear();
 
