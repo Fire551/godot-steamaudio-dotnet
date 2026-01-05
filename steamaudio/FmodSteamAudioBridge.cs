@@ -101,7 +101,11 @@ namespace SteamAudioDotnet.scripts.nativelib
         public static FmodSteamAudioBridge? Singleton = null;
 
         public static object AudioSourcesLock = new();
+        public static object AudioSourceCreationLock = new();
         public volatile bool SimulationStarting = false;
+
+        private Queue<Variant> FMODSourceCreateEvents = new();
+        private Queue<Variant> FMODSourceDeleteEvents = new();
 
         /// <summary>
         /// NOTE: Lock AudioSourcesLock while enumerating this list.
@@ -723,12 +727,18 @@ namespace SteamAudioDotnet.scripts.nativelib
 
         public unsafe void FMODEventCreated(Variant var)
         {
-            FmodEventCreatedTask(var);
+            lock (AudioSourceCreationLock)
+            {
+                FMODSourceCreateEvents.Enqueue(var);
+            }
         }
 
         public void FMODEventRemoved(Variant var)
         {
-            FmodEventDeletedTask(var);
+            lock (AudioSourceCreationLock)
+            {
+                FMODSourceDeleteEvents.Enqueue(var);
+            }
         }
         
         public void FMODPlayOneShotGuid(string guid)
@@ -744,7 +754,6 @@ namespace SteamAudioDotnet.scripts.nativelib
                 return;
             }
 
-           
             byte[] ptrBytes = (byte[])var;
 
             nint ptr = bytesToPtr(ptrBytes);
@@ -787,24 +796,24 @@ namespace SteamAudioDotnet.scripts.nativelib
 
             nint ptr = bytesToPtr(ptrBytes);
 
-            foreach (SteamAudioSource source in ActiveSources)
+            lock (SteamAudioCollectionsLock)
             {
-                if (source.FmodSourceHandle == null || source.FmodEvent == null)
-                    continue;
-
-                nint sourcePtr = source.FmodEvent.Value.handle;
-
-                if (sourcePtr == ptr)
+                foreach (SteamAudioSource source in ActiveSources)
                 {
-                    API.iplSourceRemove(source.Ptr, Simulator);
-                    SteamFmodApi.iplFMODRemoveSource(source.FmodSourceHandle.Value);
+                    if (source.FmodSourceHandle == null || source.FmodEvent == null)
+                        continue;
 
-                    lock (SteamAudioCollectionsLock)
+                    nint sourcePtr = source.FmodEvent.Value.handle;
+
+                    if (sourcePtr == ptr)
                     {
-                        ActiveSources.Remove(source);
-                    }
+                        API.iplSourceRemove(source.Ptr, Simulator);
+                        SteamFmodApi.iplFMODRemoveSource(source.FmodSourceHandle.Value);
 
-                    break;
+                        ActiveSources.Remove(source);
+
+                        break;
+                    }
                 }
             }
         }
@@ -946,10 +955,11 @@ namespace SteamAudioDotnet.scripts.nativelib
             FirstProcessHappened = true;
         }
 
-        private List<SteamAudioSource> threadAudioSources = new();
-
         public void RunSimulation()
         {
+            List<Variant> eventsToCreate = new();
+            List<Variant> eventsToDelete = new();
+
             while (simulationThreadRunning)
             {
                 Thread.Sleep(1);
@@ -960,14 +970,32 @@ namespace SteamAudioDotnet.scripts.nativelib
                 if (Context == IntPtr.Zero || Simulator == IntPtr.Zero)
                     continue;
 
-                threadAudioSources.Clear();
+                eventsToCreate.Clear();
+                eventsToDelete.Clear();
 
-                lock (SteamAudioCollectionsLock)
+                lock (AudioSourceCreationLock)
                 {
-                    foreach (SteamAudioSource source in ActiveSources)
+                    while (FMODSourceCreateEvents.Count > 0)
                     {
-                        threadAudioSources.Add(source);
+                        Variant var = FMODSourceCreateEvents.Dequeue();
+                        eventsToCreate.Add(var);
                     }
+
+                    while (FMODSourceDeleteEvents.Count > 0)
+                    {
+                        Variant var = FMODSourceDeleteEvents.Dequeue();
+                        eventsToDelete.Add(var);
+                    }
+                }
+
+                foreach (Variant var in eventsToCreate)
+                {
+                    FmodEventCreatedTask(var);
+                }
+
+                foreach (Variant var in eventsToDelete)
+                {
+                    FmodEventDeletedTask(var);
                 }
 
                 // Run all queued commits
@@ -995,11 +1023,14 @@ namespace SteamAudioDotnet.scripts.nativelib
                 // Run direct
                 API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Direct, ref SharedInputs);
 
-                foreach (SteamAudioSource source in threadAudioSources)
+                lock (SteamAudioCollectionsLock)
                 {
-                    source.UpdateSourceInputs(this, Simulator, SimulationFlags.Direct);
+                    foreach (SteamAudioSource source in ActiveSources)
+                    {
+                        source.UpdateSourceInputs(this, Simulator, SimulationFlags.Direct);
+                    }
                 }
-
+                
                 lock (SteamAudioSimulationLock)
                 {
                     API.iplSimulatorRunDirect(Simulator);
@@ -1008,11 +1039,14 @@ namespace SteamAudioDotnet.scripts.nativelib
                 // Run reflections
                 API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Reflections, ref SharedInputs);
 
-                foreach (SteamAudioSource source in threadAudioSources)
+                lock (SteamAudioCollectionsLock)
                 {
-                    source.UpdateSourceInputs(this, Simulator, SimulationFlags.Reflections);
+                    foreach (SteamAudioSource source in ActiveSources)
+                    {
+                        source.UpdateSourceInputs(this, Simulator, SimulationFlags.Reflections);
+                    }
                 }
-
+                
                 if (ReverbListenerSource != null && ReverbListenerSource.IsValid)
                 {
                     ReverbListenerSource.UpdateSourceInputs(this, Simulator, SimulationFlags.Reflections);
@@ -1028,11 +1062,14 @@ namespace SteamAudioDotnet.scripts.nativelib
                 {
                     API.iplSimulatorSetSharedInputs(Simulator, SimulationFlags.Pathing, ref SharedInputs);
 
-                    foreach (SteamAudioSource source in threadAudioSources)
+                    lock (SteamAudioCollectionsLock)
                     {
-                        source.UpdateSourceInputs(this, Simulator, SimulationFlags.Pathing);
+                        foreach (SteamAudioSource source in ActiveSources)
+                        {
+                            source.UpdateSourceInputs(this, Simulator, SimulationFlags.Pathing);
+                        }
                     }
-
+                    
                     lock (SteamAudioSimulationLock)
                     {
                         API.iplSimulatorRunPathing(Simulator);
